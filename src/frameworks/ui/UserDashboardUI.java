@@ -73,10 +73,50 @@ public class UserDashboardUI {
         JPanel statsContainer = new JPanel(new GridLayout(1, 3, 20, 0));
         statsContainer.setOpaque(false);
 
-        // Modern stat cards
-        statsContainer.add(createModernStatCard("Total Diagnoses", "23", "📊"));
-        statsContainer.add(createModernStatCard("Pending Consultations", "5", "🔄"));
-        statsContainer.add(createModernStatCard("Success Rate", "92%", "✨"));
+        try {
+            // Get user ID
+            int userId = SessionManager.getLoggedInUserId();
+
+            // Calculate Total Diagnoses
+            int totalDiagnoses = databaseConnector.calculateTotalDiagnoses(userId);
+
+            // Calculate Pending Consultations
+            int pendingConsultations = databaseConnector.calculatePendingConsultations(userId);
+
+            // Calculate Success Rate
+            double successRate = databaseConnector.calculateSuccessRate(userId);
+
+            // Modern stat cards with dynamic data
+            statsContainer.add(createModernStatCard(
+                    "Total Diagnoses",
+                    String.valueOf(totalDiagnoses),
+                    "📊"
+            ));
+            statsContainer.add(createModernStatCard(
+                    "Pending Consultations",
+                    String.valueOf(pendingConsultations),
+                    "🔄"
+            ));
+            statsContainer.add(createModernStatCard(
+                    "Success Rate",
+                    String.format("%.1f%%", successRate),
+                    "✨"
+            ));
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            // Fallback to default values
+            statsContainer.add(createModernStatCard("Total Diagnoses", "0", "📊"));
+            statsContainer.add(createModernStatCard("Pending Consultations", "0", "🔄"));
+            statsContainer.add(createModernStatCard("Success Rate", "0%", "✨"));
+
+            JOptionPane.showMessageDialog(
+                    frame,
+                    "Error loading dashboard statistics: " + e.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
 
         // Recent Activity Panel
         JPanel activityPanel = createRecentActivityPanel();
@@ -97,6 +137,7 @@ public class UserDashboardUI {
         frame.setVisible(true);
 
     }
+
 
     public void showDiagnosisPage(String username) {
         JFrame frame = new JFrame("Diagnosis");
@@ -246,10 +287,8 @@ public class UserDashboardUI {
         actionPanel.setBackground(BACKGROUND);
 
         JButton btnBack =  uiComponents.createPrimaryButton("Back to Dashboard");
-        JButton btnPrint = uiComponents.createSecondaryButton("Print Results");
 
         actionPanel.add(btnBack);
-        actionPanel.add(btnPrint);
 
         contentPanel.add(headerPanel, BorderLayout.NORTH);
         contentPanel.add(resultCard, BorderLayout.CENTER);
@@ -298,15 +337,6 @@ public class UserDashboardUI {
         headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
         headerLabel.setForeground(Color.WHITE);
 
-        // Search Field
-        JTextField searchField = createSearchField("Search history...");
-        JPanel searchPanel = new JPanel(new BorderLayout(10, 10));
-        searchPanel.setBackground(PRIMARY_DARK);
-        searchPanel.add(searchField, BorderLayout.CENTER);
-
-        headerPanel.add(headerLabel, BorderLayout.WEST);
-        headerPanel.add(searchPanel, BorderLayout.EAST);
-
         // History List Panel
         JPanel historyListPanel = new JPanel();
         historyListPanel.setLayout(new BoxLayout(historyListPanel, BoxLayout.Y_AXIS));
@@ -321,7 +351,7 @@ public class UserDashboardUI {
         // Load history data
         new Thread(() -> {
             try {
-                // Get user ID from username
+                // Get user ID
                 int userId = SessionManager.getLoggedInUserId();
                 if (userId == -1) {
                     SwingUtilities.invokeLater(() ->
@@ -329,7 +359,7 @@ public class UserDashboardUI {
                     return;
                 }
 
-                // Get history data for the user
+                // Query data from the database
                 List<RiwayatDiagnosa> riwayatList = databaseConnector.getRiwayatByUserId(userId);
 
                 SwingUtilities.invokeLater(() -> {
@@ -343,7 +373,7 @@ public class UserDashboardUI {
                         historyListPanel.add(emptyLabel);
                     } else {
                         for (RiwayatDiagnosa riwayat : riwayatList) {
-                            JPanel historyCard = createHistoryCard(riwayat, frame, username);
+                            JPanel historyCard = createHistoryCard(riwayat);
                             historyListPanel.add(historyCard);
                             historyListPanel.add(Box.createVerticalStrut(10));
                         }
@@ -355,9 +385,17 @@ public class UserDashboardUI {
 
             } catch (SQLException e) {
                 e.printStackTrace();
-                SwingUtilities.invokeLater(() ->
-                        JOptionPane.showMessageDialog(frame, "Error loading history: " + e.getMessage(),
-                                "Error", JOptionPane.ERROR_MESSAGE));
+                SwingUtilities.invokeLater(() -> {
+                    historyListPanel.removeAll();
+                    JLabel errorLabel = new JLabel("Failed to load history data");
+                    errorLabel.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+                    errorLabel.setForeground(TEXT_SECONDARY);
+                    errorLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                    historyListPanel.add(errorLabel);
+
+                    historyListPanel.revalidate();
+                    historyListPanel.repaint();
+                });
             }
         }).start();
 
@@ -370,40 +408,21 @@ public class UserDashboardUI {
         frame.add(mainPanel);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
-
-        // Add search functionality
-        searchField.getDocument().addDocumentListener(new DocumentListener() {
-            public void changedUpdate(DocumentEvent e) { search(); }
-            public void removeUpdate(DocumentEvent e) { search(); }
-            public void insertUpdate(DocumentEvent e) { search(); }
-
-            public void search() {
-                String searchTerm = searchField.getText().toLowerCase();
-                for (Component component : historyListPanel.getComponents()) {
-                    if (component instanceof JPanel) {
-                        JPanel card = (JPanel) component;
-                        boolean visible = false;
-
-                        for (Component cardComponent : card.getComponents()) {
-                            if (cardComponent instanceof JLabel) {
-                                JLabel label = (JLabel) cardComponent;
-                                if (label.getText().toLowerCase().contains(searchTerm)) {
-                                    visible = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        card.setVisible(visible);
-                    }
-                }
-                historyListPanel.revalidate();
-                historyListPanel.repaint();
-            }
-        });
     }
 
-    private JPanel createHistoryCard(RiwayatDiagnosa riwayat, JFrame parentFrame, String username) {
+
+    private String parseDiagnosisDetails(String diagnosisText) {
+        // Parsing logic for the diagnosis text
+        return diagnosisText.replaceAll("===.*===", "").trim(); // Remove unnecessary headers
+    }
+    private String parseSolutionDetails(String solutionText) {
+        // Parsing logic for the solution text
+        return solutionText.replaceAll("===.*===", "").trim(); // Remove headers
+    }
+
+
+
+    private JPanel createHistoryCard(RiwayatDiagnosa riwayat) {
         JPanel card = new JPanel(new BorderLayout(15, 10));
         card.setBackground(CARD_BG);
         card.setBorder(BorderFactory.createCompoundBorder(
@@ -417,27 +436,47 @@ public class UserDashboardUI {
         dateLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
         dateLabel.setForeground(TEXT_SECONDARY);
 
-        // Result Summary
-        String summaryText = getSummaryFromDiagnosis(riwayat.getHasilDiagnosa());
-        JLabel summaryLabel = new JLabel(summaryText);
-        summaryLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        summaryLabel.setForeground(TEXT_PRIMARY);
+        // Result Details
+        JTextArea detailsArea = new JTextArea(parseDiagnosisDetails(riwayat.getHasilDiagnosa()));
+        detailsArea.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        detailsArea.setLineWrap(true);
+        detailsArea.setWrapStyleWord(true);
+        detailsArea.setEditable(false);
+        detailsArea.setBackground(CARD_BG);
+        detailsArea.setForeground(TEXT_PRIMARY);
 
-        // View Details Button
-            JButton detailsButton = uiComponents.createSecondaryButton("View Details");
-        detailsButton.addActionListener(e -> showDetailedResults(riwayat, parentFrame, username));
+        // Solution Details
+        JTextArea solutionArea = new JTextArea(parseSolutionDetails(riwayat.getSolusi()));
+        solutionArea.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        solutionArea.setLineWrap(true);
+        solutionArea.setWrapStyleWord(true);
+        solutionArea.setEditable(false);
+        solutionArea.setBackground(CARD_BG);
+        solutionArea.setForeground(new Color(34, 197, 94)); // Green color for solution text
 
-        // Left Panel for Date and Summary
-        JPanel leftPanel = new JPanel(new GridLayout(2, 1, 5, 5));
-        leftPanel.setOpaque(false);
-        leftPanel.add(dateLabel);
-        leftPanel.add(summaryLabel);
+        // Layout for Diagnosis and Solution
+        JPanel contentPanel = new JPanel(new BorderLayout(10, 10));
+        contentPanel.setOpaque(false);
+        contentPanel.add(new JLabel("Diagnosis Details:"), BorderLayout.NORTH);
+        contentPanel.add(detailsArea, BorderLayout.CENTER);
 
-        card.add(leftPanel, BorderLayout.CENTER);
-        card.add(detailsButton, BorderLayout.EAST);
+        JPanel solutionPanel = new JPanel(new BorderLayout(10, 10));
+        solutionPanel.setOpaque(false);
+        solutionPanel.add(new JLabel("Solutions:"), BorderLayout.NORTH);
+        solutionPanel.add(solutionArea, BorderLayout.CENTER);
+
+        // Combine all components
+        JPanel combinedPanel = new JPanel(new BorderLayout(10, 10));
+        combinedPanel.setOpaque(false);
+        combinedPanel.add(contentPanel, BorderLayout.NORTH);
+        combinedPanel.add(solutionPanel, BorderLayout.SOUTH);
+
+        card.add(dateLabel, BorderLayout.NORTH);
+        card.add(combinedPanel, BorderLayout.CENTER);
 
         return card;
     }
+
 
     private String getSummaryFromDiagnosis(String fullDiagnosis) {
         String[] lines = fullDiagnosis.split("\n");
@@ -480,23 +519,65 @@ public class UserDashboardUI {
     }
 
     public void showUserConsultationPage(String username) {
+
+        // Di awal method showUserConsultationPage
+        System.out.println("Attempting to start consultation");
+        System.out.println("Passed username: " + username);
+        System.out.println("Session username: " + SessionManager.getLoggedInUsername());
+        System.out.println("Session user ID: " + SessionManager.getLoggedInUserId());
         try {
-            // Get list of available technicians
+            // Normalisasi username
+            username = username.trim().toLowerCase();
+
+            // Validasi username
+            if (username.isEmpty()) {
+                JOptionPane.showMessageDialog(null,
+                        "Username tidak valid. Silakan login ulang.",
+                        "Kesalahan",
+                        JOptionPane.ERROR_MESSAGE);
+                new AuthUI(databaseConnector).showLoginPage();
+                return;
+            }
+
+            // Ambil username dari session untuk memastikan konsistensi
+            String sessionUsername = SessionManager.getLoggedInUsername();
+
+            // Jika username berbeda, gunakan username dari session
+            if (!username.equals(sessionUsername)) {
+                username = sessionUsername;
+            }
+
+            // Coba ambil user ID
+            int userId;
+            try {
+                userId = databaseConnector.getUserIdByUsername(username);
+                // Update session jika perlu
+                SessionManager.startSession(userId, username, "user");
+            } catch (SQLException userNotFoundEx) {
+                JOptionPane.showMessageDialog(null,
+                        "User tidak ditemukan. Silakan login ulang.",
+                        "Kesalahan",
+                        JOptionPane.ERROR_MESSAGE);
+                new AuthUI(databaseConnector).showLoginPage();
+                return;
+            }
+
+            // Ambil daftar teknisi yang tersedia
             List<String> technicians = databaseConnector.getTechnicianList();
 
             if (technicians.isEmpty()) {
                 JOptionPane.showMessageDialog(null,
-                        "No technicians are available at the moment. Please try again later.",
-                        "No Technicians Available",
+                        "Tidak ada teknisi yang tersedia saat ini.",
+                        "Informasi",
                         JOptionPane.INFORMATION_MESSAGE);
                 return;
             }
 
-            // Show technician selection dialog
+            // Tampilkan dialog pemilihan teknisi
             String selectedTechnician = (String) JOptionPane.showInputDialog(
                     null,
-                    "Choose a technician to start consultation:",
-                    "Select Technician",
+                    "Pilih teknisi untuk konsultasi:",
+                    "Pilih Teknisi",
                     JOptionPane.QUESTION_MESSAGE,
                     null,
                     technicians.toArray(),
@@ -504,47 +585,44 @@ public class UserDashboardUI {
             );
 
             if (selectedTechnician != null) {
-                // Get user ID from session
-                int userId = SessionManager.getLoggedInUserId();
-                if (userId == -1) {
+                // Dapatkan ID teknisi
+                int teknisiId;
+                try {
+                    teknisiId = databaseConnector.getUserIdByUsername(selectedTechnician);
+                } catch (SQLException e) {
                     JOptionPane.showMessageDialog(null,
-                            "Session expired. Please login again.",
-                            "Error",
-                            JOptionPane.ERROR_MESSAGE);
-                    new AuthUI(databaseConnector).showLoginPage();
-                    return;
-                }
-
-                // Get technician ID
-                int teknisiId = databaseConnector.getUserIdByUsername(selectedTechnician);
-                if (teknisiId == -1) {
-                    JOptionPane.showMessageDialog(null,
-                            "Selected technician not found. Please try again.",
-                            "Error",
+                            "Gagal mendapatkan ID teknisi: " + e.getMessage(),
+                            "Kesalahan",
                             JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
-                // Create chat room
+                // Buat chat room
                 int chatRoomId = databaseConnector.createChatRoom(userId, teknisiId);
 
                 if (chatRoomId != -1) {
-                    // Open chat window
-                    ChatWindow chatWindow = new ChatWindow(databaseConnector, username, "user");
-                    chatWindow.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                    // Buka jendela chat
+                    ChatWindow chatWindow = new ChatWindow(
+                            databaseConnector,
+                            username,
+                            "user"
+                    );
                     chatWindow.setVisible(true);
+
+                    // Refresh chat rooms secara manual
+                    chatWindow.loadChatRooms();
                 } else {
                     JOptionPane.showMessageDialog(null,
-                            "Failed to create chat room. Please try again.",
-                            "Error",
+                            "Gagal membuat ruang chat.",
+                            "Kesalahan",
                             JOptionPane.ERROR_MESSAGE);
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(null,
-                    "Error: " + e.getMessage(),
-                    "Error",
+                    "Terjadi kesalahan: " + e.getMessage(),
+                    "Kesalahan",
                     JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -740,6 +818,18 @@ public class UserDashboardUI {
                 .append(solutionBuilder.toString());
 
         results.detailedResults = resultBuilder.toString();
+
+        // Perhitungan Certainty Factor
+        if (count > 0) {
+            resultBuilder.append("\n\nPerhitungan Certainty Factor:\n");
+            resultBuilder.append("Certainty Factor dapat diperoleh dengan rumus:\n");
+            resultBuilder.append(" (CF) dihitung dengan rumus:\n");
+            resultBuilder.append("CF = (Total Certainty Factor dari gejala yang teridentifikasi) / (Jumlah gejala yang teridentifikasi)\n");
+            resultBuilder.append(String.format("CF = %.2f / %d = %.2f%%\n", totalCF, count, (totalCF / count)));
+        } else {
+            resultBuilder.append("\n\nTidak ada gejala yang teridentifikasi, sehingga Certainty Factor tidak dapat dihitung.\n");
+        }
+
         return results;
     }
 
@@ -877,7 +967,7 @@ public class UserDashboardUI {
         return card;
     }
 
-    private class ModernListCellRenderer extends DefaultListCellRenderer {
+    private static class ModernListCellRenderer extends DefaultListCellRenderer {
         @Override
         public Component getListCellRendererComponent(JList<?> list, Object value,
                                                       int index, boolean isSelected, boolean cellHasFocus) {
@@ -922,11 +1012,11 @@ public class UserDashboardUI {
     // Data processing helper class
     private class ProcessedResults {
         int symptomCount;
-        double averageCF;
+        double averageCF; // This can remain as a double for average calculation
         int solutionCount;
         String detailedResults;
-        List<Integer> matchedGejalaIds = new ArrayList<>(); // Tambahkan ini
-
+        List<Integer> matchedGejalaIds = new ArrayList<>();
+        List<Integer> certaintyFactors = new ArrayList<>(); // New list to store CF values
     }
 
 
@@ -963,6 +1053,11 @@ public class UserDashboardUI {
             timer.setRepeats(false);
             timer.start();
         }
+    }
+    public void showConsultationPage(String username) {
+        ChatWindow chatWindow = new ChatWindow(databaseConnector, username, "user");
+        chatWindow.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        chatWindow.setVisible(true);
     }
 
 
@@ -1024,23 +1119,34 @@ public class UserDashboardUI {
         profilePanel.add(usernameLabel);
 
         // Navigation Buttons
+        JButton btnHome = createModernNavButton("Home", "🏠");
         JButton btnDiagnosis = createModernNavButton("Start Diagnosis", "🔍");
         JButton btnRiwayat = createModernNavButton("History", "📋");
         JButton btnKonsultasi = createModernNavButton("Online Consultation", "💬");
+        JButton btnOpenChat = createModernNavButton("Open Chat Consultation", "💬");
         JButton btnLogout = createModernNavButton("Logout", "🚪");
 
         // Add components to sidebar
         sidebar.add(profilePanel);
         sidebar.add(Box.createRigidArea(new Dimension(0, 40)));
+        sidebar.add(btnHome);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
         sidebar.add(btnDiagnosis);
         sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
         sidebar.add(btnRiwayat);
         sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
         sidebar.add(btnKonsultasi);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
+        sidebar.add(btnOpenChat);
         sidebar.add(Box.createVerticalGlue());
         sidebar.add(btnLogout);
 
         // Add event listeners
+        btnHome.addActionListener(e -> {
+            frame.dispose();
+            show(username);
+        });
+
         btnDiagnosis.addActionListener(e -> {
             frame.dispose();
             showDiagnosisPage(username);
@@ -1054,6 +1160,12 @@ public class UserDashboardUI {
         btnKonsultasi.addActionListener(e -> {
             frame.dispose();
             showUserConsultationPage(username);
+
+        });
+
+        btnOpenChat.addActionListener(e -> {
+            frame.dispose();
+            showConsultationPage(username);
         });
 
         btnLogout.addActionListener(e -> {

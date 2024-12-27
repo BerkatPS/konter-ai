@@ -1,10 +1,13 @@
 package frameworks.ui;
 
 import frameworks.DatabaseConnector;
+import frameworks.SessionManager;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.sql.SQLException;
 
 public class TeknisiDashboardUI {
     // Color palette constants
@@ -45,14 +48,46 @@ public class TeknisiDashboardUI {
         // Modern Header
         JPanel headerPanel = createModernHeader(username);
 
+
+
         // Stats Cards Container
         JPanel statsContainer = new JPanel(new GridLayout(1, 3, 20, 0));
         statsContainer.setOpaque(false);
 
-        // Modern stat cards
-        statsContainer.add(createModernStatCard("Active Consultations", "3", "💬"));
-        statsContainer.add(createModernStatCard("Pending Requests", "7", "⏳"));
-        statsContainer.add(createModernStatCard("Completed Today", "12", "✅"));
+
+        try {
+            // Get user ID
+            int userId = SessionManager.getLoggedInUserId();
+
+            // Hitung statistik konsultasi
+            int activeConsultations = databaseConnector.calculatePendingConsultations(userId);
+            int completedConsultations = databaseConnector.calculateCompletedConsultations(userId);
+
+            // Modern stat cards dengan data dinamis
+            statsContainer.add(createModernStatCard(
+                    "Active Consultations",
+                    String.valueOf(activeConsultations),
+                    "💬"
+            ));
+            statsContainer.add(createModernStatCard(
+                    "Completed Consultations",
+                    String.valueOf(completedConsultations),
+                    "✅"
+            ));
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            // Fallback to default values
+            statsContainer.add(createModernStatCard("Active Consultations", "0", "💬"));
+            statsContainer.add(createModernStatCard("Completed Consultations", "0", "✅"));
+
+            JOptionPane.showMessageDialog(
+                    frame,
+                    "Error loading consultation statistics: " + e.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
 
         // Recent Consultations Panel
         JPanel recentPanel = createRecentConsultationsPanel();
@@ -96,12 +131,15 @@ public class TeknisiDashboardUI {
         profilePanel.add(usernameLabel);
 
         // Navigation Buttons
+        JButton btnHome = createModernNavButton("Home", "🏠");
         JButton btnConsultation = createModernNavButton("Active Consultations", "💬");
         JButton btnHistory = createModernNavButton("Consultation History", "📋");
         JButton btnLogout = createModernNavButton("Logout", "🚪");
 
         sidebar.add(profilePanel);
         sidebar.add(Box.createRigidArea(new Dimension(0, 40)));
+        sidebar.add(btnHome);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
         sidebar.add(btnConsultation);
         sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
         sidebar.add(btnHistory);
@@ -109,6 +147,10 @@ public class TeknisiDashboardUI {
         sidebar.add(btnLogout);
 
         // Event Listeners
+        btnHome.addActionListener(e -> {
+            frame.dispose();
+            show(username);
+        });
         btnConsultation.addActionListener(e -> {
             frame.dispose();
             showConsultationPage(username);

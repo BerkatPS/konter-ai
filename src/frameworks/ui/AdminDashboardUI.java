@@ -85,6 +85,9 @@ public class AdminDashboardUI {
             case "gejala":
                 showGejalaContent();
                 break;
+            case "kategori":
+                showKategoriContent();
+                break;
             case "solusi":
                 showSolusiContent();
                 break;
@@ -102,6 +105,7 @@ public class AdminDashboardUI {
             case "dashboard": return "Dashboard Analytics";
             case "users": return "User Management";
             case "gejala": return "Gejala Management";
+            case "kategori": return "Kategori Management";
             case "solusi": return "Solusi Management";
             case "teknisi": return "Teknisi Management";
             default: return "Admin Dashboard";
@@ -110,10 +114,13 @@ public class AdminDashboardUI {
     private void showAnalytics(JPanel contentPanel) {
         try {
             // Ambil data total dari database
-            int totalUsers = databaseConnector.getTotalFromQuery("SELECT COUNT(*) AS total FROM user");
-            int totalGejala = databaseConnector.getTotalFromQuery("SELECT COUNT(*) AS total FROM gejala");
+            int totalUsers = databaseConnector.getTotalFromQuery("SELECT COUNT(*) AS total FROM user WHERE role = 'user'");
+            int totalGejala = databaseConnector.getTotalFromQuery("SELECT COUNT(*) AS total FROM gejala ");
             int totalSolusi = databaseConnector.getTotalFromQuery("SELECT COUNT(*) AS total FROM solusi");
             int totalRiwayat = databaseConnector.getTotalFromQuery("SELECT COUNT(*) AS total FROM riwayat_diagnosa");
+            int totalKategori = databaseConnector.getTotalFromQuery("SELECT COUNT(*) AS total FROM kategori");
+            int totalTeknisi = databaseConnector.getTotalFromQuery("SELECT COUNT(*) AS total FROM user WHERE role = 'teknisi'");
+
 
             // Bersihkan dan reset panel
             contentPanel.removeAll();
@@ -131,8 +138,10 @@ public class AdminDashboardUI {
             // Add modern stat cards
             statsContainer.add(createModernStatCard("Total Users", String.valueOf(totalUsers), "👥"));
             statsContainer.add(createModernStatCard("Total Gejala", String.valueOf(totalGejala), "🔍"));
+            statsContainer.add(createModernStatCard("Kategori", String.valueOf(totalKategori), "📊"));
             statsContainer.add(createModernStatCard("Total Solusi", String.valueOf(totalSolusi), "💡"));
-            statsContainer.add(createModernStatCard("Total Diagnosa", String.valueOf(totalRiwayat), "📋"));
+            statsContainer.add(createModernStatCard("History", String.valueOf(totalRiwayat), "📋"));
+            statsContainer.add(createModernStatCard("Total Teknisi", String.valueOf(totalTeknisi), "👨‍💻"));
 
             contentPanel.add(statsContainer, BorderLayout.CENTER);
             contentPanel.revalidate();
@@ -166,11 +175,24 @@ public class AdminDashboardUI {
         JPanel tablePanel = new JPanel(new BorderLayout());
         tablePanel.setBackground(CARD_BG);
         tablePanel.setBorder(createCardBorder());
-
         JTable gejalaTable = createModernTable();
-        loadTableData("SELECT * FROM gejala", gejalaTable);
+        loadTableData("SELECT id,kode_gejala,nama_gejala,deskripsi,certainty_factor * 100 AS certainty_factor_persen FROM gejala;\n", gejalaTable);
 
         JScrollPane scrollPane = new JScrollPane(gejalaTable);
+        scrollPane.setBorder(null);
+        scrollPane.getViewport().setBackground(CARD_BG);
+
+        tablePanel.add(scrollPane);
+        contentPanel.add(tablePanel, BorderLayout.CENTER);
+    }
+    private void showKategoriContent() {
+        JPanel tablePanel = new JPanel(new BorderLayout());
+        tablePanel.setBackground(CARD_BG);
+        tablePanel.setBorder(createCardBorder());
+        JTable kategoriTable = createModernTable();
+        loadTableData("SELECT * FROM kategori;\n", kategoriTable);
+
+        JScrollPane scrollPane = new JScrollPane(kategoriTable);
         scrollPane.setBorder(null);
         scrollPane.getViewport().setBackground(CARD_BG);
 
@@ -236,6 +258,7 @@ public class AdminDashboardUI {
         JButton btnDashboard = createModernNavButton("Dashboard", "📊");
         JButton btnUsers = createModernNavButton("Users", "👥");
         JButton btnGejala = createModernNavButton("Gejala", "🔍");
+        JButton btnKategori = createModernNavButton("Kategori", "📦");
         JButton btnSolusi = createModernNavButton("Solusi", "💡");
         JButton btnTeknisi = createModernNavButton("Teknisi", "👨‍💼");
         JButton btnLogout = createModernNavButton("Logout", "🚪");
@@ -244,6 +267,7 @@ public class AdminDashboardUI {
         btnDashboard.addActionListener(e -> showPage("dashboard", null));
         btnUsers.addActionListener(e -> showPage("users", null));
         btnGejala.addActionListener(e -> showPage("gejala", null));
+        btnKategori.addActionListener(e -> showPage("kategori", null));
         btnSolusi.addActionListener(e -> showPage("solusi", null));
         btnTeknisi.addActionListener(e -> showPage("teknisi", null));
         btnLogout.addActionListener(e -> {
@@ -259,6 +283,8 @@ public class AdminDashboardUI {
         sidebar.add(btnUsers);
         sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
         sidebar.add(btnGejala);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
+        sidebar.add(btnKategori);
         sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
         sidebar.add(btnSolusi);
         sidebar.add(Box.createRigidArea(new Dimension(0, 15)));

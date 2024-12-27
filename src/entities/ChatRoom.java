@@ -7,36 +7,23 @@ public class ChatRoom {
     private int id;
     private int userId;
     private int teknisiId;
-    private String otherPartyName;
     private String status;
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
     // Default Constructor
-    public ChatRoom() {
-    }
+
 
     // Parameterized Constructor
-    public ChatRoom(int id, int userId, int teknisiId, String otherPartyName, String status, Timestamp createdAt) {
+    public ChatRoom(int id, int userId, int teknisiId, String status, Timestamp createdAt) {
         this.id = id;
         this.userId = userId;
         this.teknisiId = teknisiId;
-        this.otherPartyName = otherPartyName;
         this.status = status;
         this.createdAt = createdAt;
     }
 
-    // Full Constructor
-    public ChatRoom(int id, int userId, int teknisiId, String otherPartyName, String status,
-                    Timestamp createdAt, Timestamp updatedAt) {
-        this.id = id;
-        this.userId = userId;
-        this.teknisiId = teknisiId;
-        this.otherPartyName = otherPartyName;
-        this.status = status;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
-    }
+
 
     // Getters
     public int getId() {
@@ -51,9 +38,6 @@ public class ChatRoom {
         return teknisiId;
     }
 
-    public String getOtherPartyName() {
-        return otherPartyName;
-    }
 
     public String getStatus() {
         return status;
@@ -78,10 +62,6 @@ public class ChatRoom {
 
     public void setTeknisiId(int teknisiId) {
         this.teknisiId = teknisiId;
-    }
-
-    public void setOtherPartyName(String otherPartyName) {
-        this.otherPartyName = otherPartyName;
     }
 
     public void setStatus(String status) {
@@ -121,7 +101,6 @@ public class ChatRoom {
                 "id=" + id +
                 ", userId=" + userId +
                 ", teknisiId=" + teknisiId +
-                ", otherPartyName='" + otherPartyName + '\'' +
                 ", status='" + status + '\'' +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +

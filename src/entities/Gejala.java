@@ -53,7 +53,7 @@ public class Gejala {
     }
 
     public double getCertaintyFactor() {
-        return certaintyFactor;
+        return certaintyFactor * 100;
     }
 
     public void setCertaintyFactor(double certaintyFactor) {
